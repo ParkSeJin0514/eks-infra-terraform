@@ -34,5 +34,11 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+
+    # 🆕 Kubectl Provider (ArgoCD Application CRD 배포용)
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "~> 1.14"
+    }
   }
 }

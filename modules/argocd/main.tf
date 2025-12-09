@@ -131,41 +131,34 @@ resource "kubernetes_ingress_v1" "argocd" {
 # ============================================================================
 # 3. ArgoCD Application (GitOps 자동 배포)
 # ============================================================================
-resource "kubernetes_manifest" "argocd_application" {
+# 🔄 kubernetes_manifest → kubectl_manifest 변경
+# Plan 단계에서 K8s API 연결 문제 해결
+# ============================================================================
+resource "kubectl_manifest" "argocd_application" {
   count = var.gitops_repo_url != "" ? 1 : 0
 
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "Application"
-    metadata = {
-      name      = var.app_name
-      namespace = var.namespace
-    }
-    spec = {
-      project = "default"
-      
-      source = {
-        repoURL        = var.gitops_repo_url
-        targetRevision = var.gitops_target_revision
-        path           = var.gitops_path
-      }
-      
-      destination = {
-        server    = "https://kubernetes.default.svc"
-        namespace = var.app_namespace
-      }
-      
-      syncPolicy = {
-        automated = {
-          prune    = true    # 삭제된 리소스 자동 정리
-          selfHeal = true    # 수동 변경 시 자동 복구
-        }
-        syncOptions = [
-          "CreateNamespace=true"
-        ]
-      }
-    }
-  }
+  yaml_body = <<-YAML
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: ${var.app_name}
+      namespace: ${var.namespace}
+    spec:
+      project: default
+      source:
+        repoURL: ${var.gitops_repo_url}
+        targetRevision: ${var.gitops_target_revision}
+        path: ${var.gitops_path}
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: ${var.app_namespace}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+  YAML
 
   depends_on = [helm_release.argocd]
 }

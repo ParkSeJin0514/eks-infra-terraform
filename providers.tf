@@ -7,13 +7,9 @@
 # ============================================================================
 # AWS Provider
 # ============================================================================
-# AWS 리소스 생성/관리에 사용
-# 인증: AWS CLI 설정 (~/.aws/credentials) 또는 환경변수 사용
-# ============================================================================
 provider "aws" {
-  region = var.region # 변수로 관리
+  region = var.region
 
-  # 모든 리소스에 자동으로 추가되는 기본 태그
   default_tags {
     tags = {
       Managed = "terraform"
@@ -24,21 +20,10 @@ provider "aws" {
 # ============================================================================
 # Kubernetes Provider
 # ============================================================================
-# EKS 클러스터의 Kubernetes 리소스 관리에 사용
-# 이 프로젝트에서는 aws-auth ConfigMap, ServiceAccount 관리에 사용
-#
-# 인증 방식: exec 플러그인
-#   - aws eks get-token 명령으로 임시 토큰 발급
-#   - IAM 자격증명으로 클러스터 인증
-# ============================================================================
 provider "kubernetes" {
-  # EKS API Server 주소
-  host = module.eks.cluster_endpoint
-
-  # 클러스터 CA 인증서 (Base64 디코딩 필요)
+  host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
 
-  # exec 플러그인으로 토큰 발급
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
@@ -48,9 +33,6 @@ provider "kubernetes" {
 
 # ============================================================================
 # Helm Provider
-# ============================================================================
-# Helm Chart를 이용한 Kubernetes 애플리케이션 배포에 사용
-# 이 프로젝트에서는 ALB Controller, EFS CSI Driver 설치에 사용
 # ============================================================================
 provider "helm" {
   kubernetes {
@@ -63,4 +45,24 @@ provider "helm" {
       args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_id]
     }
   }
+}
+
+# ============================================================================
+# 🆕 Kubectl Provider
+# ============================================================================
+# kubernetes_manifest 대신 kubectl_manifest 사용을 위한 Provider
+# 장점: Plan 단계에서 K8s API 연결이 필요 없음 (EKS 생성 전에도 Plan 가능)
+# 용도: ArgoCD Application CRD 등 Custom Resource 배포
+# ============================================================================
+provider "kubectl" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_id]
+  }
+
+  load_config_file = false
 }
